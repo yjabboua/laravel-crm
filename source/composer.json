@@ -8,14 +8,17 @@
         "php": "^8.0.2",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^9.2",
+        "laravel/horizon": "^5.9",
         "laravel/sanctum": "^2.14.1",
         "laravel/tinker": "^2.7"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "^3.6",
         "fakerphp/faker": "^1.9.1",
-        "laravel/sail": "^1.0.1",
+        "friendsofphp/php-cs-fixer": "^3.8",
         "mockery/mockery": "^1.4.4",
         "nunomaduro/collision": "^6.1",
+        "nunomaduro/larastan": "^2.1",
         "phpunit/phpunit": "^9.5.10",
         "spatie/laravel-ignition": "^1.0"
     },
@@ -44,7 +47,12 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
-        ]
+        ],
+        "test": "@php artisan test",
+        "test:cov": "@test --coverage",
+        "cs:check": "php-cs-fixer fix -v --config=.php_cs.dist.php --allow-risky=yes --dry-run",
+        "cs:fix": "php-cs-fixer fix -v --config=.php_cs.dist.php --allow-risky=yes",
+        "analyse": "phpstan analyse"
     },
     "extra": {
         "laravel": {
