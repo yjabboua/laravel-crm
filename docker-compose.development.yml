@@ -1,0 +1,164 @@
+version: '3.4'
+
+services:
+    web:
+        container_name: laravel_web
+        build:
+            context: .
+            dockerfile: .docker/nginx/development.dockerfile
+        restart: unless-stopped
+        ports:
+            - '8080:80'
+        volumes:
+            - ./source:/var/www/html:delegated
+        depends_on:
+            - php
+        networks:
+            - laravel_network
+
+    php:
+        container_name: laravel_php
+        build:
+            context: .
+            dockerfile: .docker/php/development.dockerfile
+            args:
+                - UNAME=${UNAME:-docker-user}
+                - UID=${UID:-1000}
+        environment:
+            APP_URL: 'http://localhost:8080'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        volumes:
+            - ./source:/var/www/html
+            - ./source/node_modules:/var/www/html/node_modules:delegated
+        depends_on:
+            - db
+            - redis
+            - mailhog
+        networks:
+            - laravel_network
+
+    db:
+        container_name: laravel_db
+        build:
+            context: .
+            dockerfile: .docker/mysql/development.dockerfile
+        volumes:
+            - .docker/mysql/db-dumps:/home/db-dumps
+            - db_data:/var/lib/mysql
+#            - .docker/mysql/data:/var/lib/mysql
+        restart: unless-stopped
+        ports:
+            - "33066:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: "secret"
+            MYSQL_ROOT_HOST: "%"
+            MYSQL_DATABASE: "laravel_dev"
+            MYSQL_USER: "laravel_user"
+            MYSQL_PASSWORD: "secret"
+        healthcheck:
+            test: ["CMD", "mysqladmin", "ping", "-p${MYSQL_PASSWORD:-secret}"]
+            retries: 3
+            timeout: 5s
+        networks:
+            - laravel_network
+
+    redis:
+        container_name: laravel_redis
+        image: redis:alpine
+        restart: unless-stopped
+        ports:
+            - '${FORWARD_REDIS_PORT:-6379}:6379'
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            retries: 3
+            timeout: 5s
+        networks:
+            - laravel_network
+
+    redis-commander:
+        container_name: laravel_rediscmdr
+        hostname: redis-commander
+        image: rediscommander/redis-commander:latest
+        environment:
+            REDIS_HOST: 'redis'
+            REDIS_PORT: '${FORWARD_REDIS_PORT:-6379}'
+        ports:
+            - '8081:8081'
+        depends_on:
+            - redis
+        networks:
+            - laravel_network
+
+    pma:
+        container_name: laravel_pma
+        image: phpmyadmin/phpmyadmin:latest
+        environment:
+            MYSQL_USERNAME: 'laravel_user'
+            MYSQL_ROOT_PASSWORD: 'secret'
+            PMA_HOST: db
+            UPLOAD_LIMIT: 20M
+        ports:
+            - '8082:80'
+        depends_on:
+            - db
+        networks:
+            - laravel_network
+
+    mailhog:
+        container_name: laravel_mailhog
+        image: mailhog/mailhog:latest
+        ports:
+            - '${FORWARD_MAILHOG_PORT:-1025}:1025'
+            - '${FORWARD_MAILHOG_DASHBOARD_PORT:-8083}:8025'
+        networks:
+            - laravel_network
+
+    cron:
+        container_name: laravel_cron
+        build:
+            context: .
+            dockerfile: .docker/cron/development.dockerfile
+        volumes:
+            - ./source:/var/www/html
+        depends_on:
+            - php
+        networks:
+            - laravel_network
+
+#    minio:
+#        container_name: laravel_minio
+#        image: minio/minio:latest
+#        ports:
+#            - '${FORWARD_MINIO_PORT:-9900}:9000'
+#            - '${FORWARD_MINIO_CONSOLE_PORT:-8900}:8900'
+#        environment:
+#            MINIO_ROOT_USER: 'laravel'
+#            MINIO_ROOT_PASSWORD: 'password'
+#        volumes:
+#            - minio_data:/data/minio
+#        networks:
+#            - laravel_network
+#        command: minio server /data/minio --console-address ":8900"
+#        healthcheck:
+#            test: ["CMD", "curl", "-f", "http://localhost:9900/minio/health/live"]
+#            retries: 3
+#            timeout: 5s
+
+#    selenium:
+#        container_name: laravel_selenium
+#        image: selenium/standalone-chrome:latest
+#        volumes:
+#            - '/dev/shm:/dev/shm'
+#        networks:
+#            - laravel_network
+
+networks:
+    laravel_network:
+        driver: bridge
+
+volumes:
+    db_data: {}
+    redis_data: {}
+#    minio_data: {}
+
